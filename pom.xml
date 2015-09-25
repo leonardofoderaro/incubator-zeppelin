@@ -104,6 +104,7 @@
     <module>zeppelin-web</module>
     <module>zeppelin-server</module>
     <module>zeppelin-distribution</module>
+    <module>r</module>
   </modules>
 
   <properties>

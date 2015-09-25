@@ -17,6 +17,7 @@
 
 package org.apache.zeppelin.R;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
 
@@ -25,6 +26,11 @@ import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
+import org.rosuda.REngine.REXP;
+import org.rosuda.REngine.REXPMismatchException;
+import org.rosuda.REngine.REngineException;
+import org.rosuda.REngine.Rserve.RConnection;
+import org.rosuda.REngine.Rserve.RserveException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,10 +40,13 @@ import org.slf4j.LoggerFactory;
  */
 public class RInterpreter extends Interpreter {
   Logger logger = LoggerFactory.getLogger(RInterpreter.class);
+
   int commandTimeOut = 600000;
 
+  HashMap<String, RConnection> connections = new HashMap<String, RConnection>();
+
   static {
-    Interpreter.register("sh", RInterpreter.class.getName());
+    Interpreter.register("r", RInterpreter.class.getName());
   }
 
   public RInterpreter(Properties property) {
@@ -53,8 +62,36 @@ public class RInterpreter extends Interpreter {
 
   @Override
   public InterpreterResult interpret(String cmd, InterpreterContext contextInterpreter) {
-   
-	  
+
+    RConnection c = connections.get(contextInterpreter.getNoteId());
+
+    if (c == null) {
+      try {
+        c = new RConnection();
+        connections.put(contextInterpreter.getNoteId(), c);
+      } catch (RserveException e) {
+        e.printStackTrace();
+      }
+    }
+
+    try {
+      c.assign(".tmp.", cmd);
+      REXP r = c.parseAndEval("try(eval(parse(text=.tmp.)),silent=TRUE)");
+      if (r == null) {
+        return new InterpreterResult(InterpreterResult.Code.SUCCESS, "OK");
+      } else if (r.isRaw()) {
+        System.out.println(r.asBytes());
+      } else if (r.inherits("try-error")) {
+        return new InterpreterResult(InterpreterResult.Code.ERROR, r.asString());
+      } else { 
+        return new InterpreterResult(InterpreterResult.Code.SUCCESS, r.asString());
+      }
+
+    } catch (RserveException | REXPMismatchException e) {
+      e.printStackTrace();
+    } catch (REngineException e) {
+      e.printStackTrace();
+    }
     return new InterpreterResult(InterpreterResult.Code.SUCCESS, "YEAH");
   }
 
@@ -74,7 +111,7 @@ public class RInterpreter extends Interpreter {
   @Override
   public Scheduler getScheduler() {
     return SchedulerFactory.singleton().createOrGetFIFOScheduler(
-        RInterpreter.class.getName() + this.hashCode());
+      RInterpreter.class.getName() + this.hashCode());
   }
 
   @Override

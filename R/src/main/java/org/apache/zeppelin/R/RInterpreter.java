@@ -77,8 +77,9 @@ public class RInterpreter extends Interpreter {
 
     try {
       cmd = cmd.replaceAll("'", "\\'");
-      c.assign(".tmp.", cmd);
+      c.assign(".tmp.", "library(gtools); capture.output(" + cmd + ")");
       REXP r = c.parseAndEval("try(eval(parse(text=.tmp.)),silent=F)");
+
       if (r == null) {
         return new InterpreterResult(InterpreterResult.Code.SUCCESS, "OK");
       } else if (r.isRaw()) {
@@ -86,7 +87,12 @@ public class RInterpreter extends Interpreter {
       } else if (r.inherits("try-error")) {
         return new InterpreterResult(InterpreterResult.Code.ERROR, r.asString());
       } else { 
-        return new InterpreterResult(InterpreterResult.Code.SUCCESS, r.asString());
+        StringBuffer sb = new StringBuffer();
+        for (String s : r.asStrings()) {
+          sb.append(s + "\n");
+        }
+
+        return new InterpreterResult(InterpreterResult.Code.SUCCESS, sb.toString());
       }
 
     } catch (RserveException | REXPMismatchException e) {
@@ -113,7 +119,7 @@ public class RInterpreter extends Interpreter {
   @Override
   public Scheduler getScheduler() {
     return SchedulerFactory.singleton().createOrGetFIFOScheduler(
-      RInterpreter.class.getName() + this.hashCode());
+        RInterpreter.class.getName() + this.hashCode());
   }
 
   @Override

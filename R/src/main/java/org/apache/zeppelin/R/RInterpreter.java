@@ -17,6 +17,7 @@
 
 package org.apache.zeppelin.R;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
@@ -75,8 +76,9 @@ public class RInterpreter extends Interpreter {
     }
 
     try {
+      cmd = cmd.replaceAll("'", "\\'");
       c.assign(".tmp.", cmd);
-      REXP r = c.parseAndEval("try(eval(parse(text=.tmp.)),silent=TRUE)");
+      REXP r = c.parseAndEval("try(eval(parse(text=.tmp.)),silent=F)");
       if (r == null) {
         return new InterpreterResult(InterpreterResult.Code.SUCCESS, "OK");
       } else if (r.isRaw()) {
